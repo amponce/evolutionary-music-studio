@@ -38,6 +38,29 @@ export class LiveAudioEngine {
     Tone.Transport.loopEnd = '1m';
   }
 
+  setSteps(steps: number) {
+    this.steps = steps;
+    // Update loop length based on steps
+    const bars = steps / 16; // 16 steps = 1 bar
+    Tone.Transport.loopEnd = `${bars}m`;
+  }
+
+  getSteps(): number {
+    return this.steps;
+  }
+
+  extendPattern(newSteps: number) {
+    this.setSteps(newSteps);
+    // Extend all track patterns
+    this.tracks.forEach(track => {
+      track.pattern.forEach((notePattern, noteIdx) => {
+        while (notePattern.length < newSteps) {
+          notePattern.push(false);
+        }
+      });
+    });
+  }
+
   async start() {
     await Tone.start();
 

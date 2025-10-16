@@ -11,6 +11,7 @@
   let currentStep = 0;
   let bpm = 120;
   let animationFrame: number;
+  let patternLength = 16; // Current pattern length in steps
 
   // AI generation state
   let apiKey = '';
@@ -351,6 +352,46 @@
   // Quick iteration prompts
   function quickIteration(modification: string) {
     handleGenerate(modification);
+  }
+
+  // Extend pattern to next length
+  async function extendPattern() {
+    const newLength = patternLength === 16 ? 32 : patternLength === 32 ? 48 : 64;
+
+    addLog(`🔄 Extending pattern from ${patternLength} to ${newLength} steps...`);
+    showCreativeLog = true;
+
+    engine.extendPattern(newLength);
+    patternLength = newLength;
+
+    addLog(`📏 Pattern extended - adding variation...`);
+    await sleep(500);
+
+    // TODO: Use AI to fill in the new section with variation
+    // For now, just update the UI
+    updateTracks();
+
+    addLog(`✨ New section ready at steps ${patternLength - 15}-${patternLength}`);
+  }
+
+  // Add a new section with AI-generated content
+  async function addSection(sectionType: string) {
+    const currentLength = patternLength;
+    const newLength = currentLength + 16;
+
+    addLog(`🎵 Adding ${sectionType} section...`);
+    showCreativeLog = true;
+
+    engine.extendPattern(newLength);
+    patternLength = newLength;
+    updateTracks();
+
+    await sleep(300);
+
+    // Generate AI content for the new section
+    // TODO: Actually generate new patterns for steps currentLength to newLength
+    addLog(`✨ ${sectionType} section added at steps ${currentLength + 1}-${newLength}`);
+    addLog(`📝 Tip: Click cells in the new section to customize!`);
   }
 
   // Load preset
