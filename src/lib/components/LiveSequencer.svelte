@@ -2,7 +2,8 @@
   import { onMount, onDestroy } from 'svelte';
   import { LiveAudioEngine, type Track } from '$lib/engine/liveAudioEngine';
   import { patternGenerator } from '$lib/engine/patternGenerator';
-  import { Volume2, VolumeX, Circle, Play, Pause, Plus, Sparkles, Code, Key } from 'lucide-svelte';
+  import { Volume2, VolumeX, Circle, Play, Pause, Plus, Sparkles, Code, Key, Mic, Terminal } from 'lucide-svelte';
+  import StrudelEditor from './StrudelEditor.svelte';
 
   let engine: LiveAudioEngine;
   let tracks: Track[] = [];
@@ -21,6 +22,16 @@
   let showLiveCode = false;
   let showHistory = false;
 
+  // Recording state
+  let isRecording = false;
+  let mediaRecorder: MediaRecorder | null = null;
+  let recordedChunks: Blob[] = [];
+  let recordingTime = 0;
+  let recordingInterval: number;
+
+  // View mode
+  let viewMode: 'sequencer' | 'code' = 'sequencer';
+
   // Pattern history
   interface SavedPattern {
     id: string;
@@ -36,6 +47,65 @@
   // Iteration context
   let previousPrompt = '';
   let iterationCount = 0;
+  let showPresets = false;
+
+  // Preset library showcasing different techniques
+  const presets = [
+    {
+      category: 'Cyberpunk',
+      presets: [
+        { name: 'Hacker Terminal', prompt: 'Cold digital pulse, minimal glitchy percussion, tense atmosphere like typing code at 3am', emoji: '👾' },
+        { name: 'Neon Streets', prompt: 'Dark synthwave with heavy bass, stuttering hi-hats, dystopian future vibes', emoji: '🌃' },
+        { name: 'Data Breach', prompt: 'Aggressive industrial glitch, distorted beats, chaotic digital noise', emoji: '⚡' },
+        { name: 'Neural Network', prompt: 'Ambient tech atmosphere, slow evolving pads, sparse melodic fragments', emoji: '🧠' },
+      ]
+    },
+    {
+      category: 'Electronic',
+      presets: [
+        { name: 'Underground Rave', prompt: 'Fast 140 BPM techno, pounding kick, acid bassline, warehouse energy', emoji: '🎧' },
+        { name: 'Breakbeat Jungle', prompt: 'Chopped breakbeats, deep rolling bass, jungle vibes, complex rhythms', emoji: '🌴' },
+        { name: 'Minimal Techno', prompt: 'Stripped back 128 BPM, hypnotic repeating patterns, subtle variations', emoji: '⬛' },
+        { name: 'Acid House', prompt: 'TB-303 style squelchy bassline, 4/4 kick, classic 90s rave energy', emoji: '🎛️' },
+      ]
+    },
+    {
+      category: 'Ambient',
+      presets: [
+        { name: 'Space Drift', prompt: 'Vast atmospheric pads, no drums, slow evolving textures, cosmic and ethereal', emoji: '🌌' },
+        { name: 'Rain Study', prompt: 'Gentle lo-fi beats, soft piano melody, warm analog feel, perfect for focus', emoji: '☔' },
+        { name: 'Dark Ritual', prompt: 'Deep droning bass, sparse tribal percussion, ominous and ceremonial', emoji: '🕯️' },
+        { name: 'Morning Light', prompt: 'Bright optimistic pads, gentle plucks, light percussion, peaceful awakening', emoji: '🌅' },
+      ]
+    },
+    {
+      category: 'Retro',
+      presets: [
+        { name: '80s Synthwave', prompt: 'Nostalgic synth leads, gated reverb drums, Outrun aesthetic, driving bassline', emoji: '🌆' },
+        { name: 'Arcade Game', prompt: 'Chiptune style bleeps, fast arpeggios, retro game energy, 8-bit nostalgia', emoji: '🕹️' },
+        { name: 'Vaporwave', prompt: 'Slowed down samples, reverb-soaked pads, melancholic nostalgia, mall aesthetics', emoji: '🌸' },
+        { name: 'Disco Funk', prompt: 'Groovy bassline, tight hi-hats, classic 4/4 disco beat, feel-good energy', emoji: '🪩' },
+      ]
+    },
+    {
+      category: 'Experimental',
+      presets: [
+        { name: 'Glitch Hop', prompt: 'Stuttering beats, pitch-shifted samples, controlled chaos, halftime groove', emoji: '🎲' },
+        { name: 'IDM Complexity', prompt: 'Complex polyrhythms, unusual time signatures, intricate percussion patterns', emoji: '🧩' },
+        { name: 'Drone Meditation', prompt: 'Single sustained note evolving slowly, microtonal shifts, meditative trance', emoji: '🧘' },
+        { name: 'Noise Wall', prompt: 'Dense layers of distortion, harsh textures, abrasive and confrontational', emoji: '📢' },
+      ]
+    },
+    {
+      category: 'Hip-Hop',
+      presets: [
+        { name: 'Boom Bap', prompt: 'Classic hip-hop drums, dusty breaks, head-nodding groove, 90 BPM', emoji: '🎤' },
+        { name: 'Trap Banger', prompt: 'Hard 808 bass, fast hi-hat rolls, aggressive energy, modern trap vibe', emoji: '💎' },
+        { name: 'Lo-Fi Chill', prompt: 'Laid back jazz-influenced beats, vinyl crackle, mellow and relaxed', emoji: '📻' },
+        { name: 'Phonk Drift', prompt: 'Dark Memphis-style beat, heavy 808s, sinister melody, car drift energy', emoji: '🚗' },
+      ]
+    },
+  ];
 
   // Generate live code representation
   function generateLiveCode(): string {
@@ -237,6 +307,63 @@
     handleGenerate(modification);
   }
 
+  // Load preset
+  function loadPreset(presetPrompt: string) {
+    prompt = presetPrompt;
+    showPresets = false;
+    handleGenerate();
+  }
+
+  // Start recording from microphone
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      mediaRecorder = new MediaRecorder(stream);
+      recordedChunks = [];
+      recordingTime = 0;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordedChunks.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+        await engine.addSampleTrack(`Voice Sample ${Math.floor(recordingTime)}s`, audioBlob);
+        updateTracks();
+        console.log('[UI] Added voice sample track');
+
+        // Stop all tracks in the stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+
+      // Update recording timer
+      recordingInterval = setInterval(() => {
+        recordingTime += 0.1;
+      }, 100);
+
+      console.log('[UI] Recording started');
+    } catch (error) {
+      console.error('[UI] Microphone access error:', error);
+      alert('Could not access microphone. Please allow microphone access.');
+    }
+  }
+
+  // Stop recording
+  function stopRecording() {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      isRecording = false;
+      clearInterval(recordingInterval);
+      console.log('[UI] Recording stopped');
+    }
+  }
+
   function saveApiKey() {
     if (apiKey.trim()) {
       localStorage.setItem('claude_api_key', apiKey);
@@ -298,12 +425,26 @@
           </button>
         {/if}
 
-        <button onclick={saveCurrentPattern} class="neural-button-primary flex items-center gap-2" disabled={!tracks.length}>
-          Save Pattern
+        <button onclick={() => showPresets = true} class="neural-button-primary flex items-center gap-2">
+          <Sparkles size={16} />
+          Presets
+        </button>
+
+        <button onclick={saveCurrentPattern} class="neural-button flex items-center gap-2" disabled={!tracks.length}>
+          Save
         </button>
 
         <button onclick={() => showHistory = true} class="neural-button flex items-center gap-2">
           History ({patternHistory.length})
+        </button>
+
+        <button
+          onclick={() => viewMode = viewMode === 'sequencer' ? 'code' : 'sequencer'}
+          class="neural-button flex items-center gap-2"
+          class:bg-pulse-purple={viewMode === 'code'}
+        >
+          <Terminal size={16} />
+          {viewMode === 'code' ? 'Grid' : 'Code'}
         </button>
       </div>
 
@@ -319,6 +460,17 @@
         </button>
         <button onclick={() => addTrack('pads')} class="neural-button text-sm">
           <Plus size={16} /> Pads
+        </button>
+        <button
+          onclick={() => isRecording ? stopRecording() : startRecording()}
+          class="neural-button text-sm"
+          class:bg-red-600={isRecording}
+          class:animate-pulse={isRecording}
+        >
+          <Mic size={16} />
+          {#if isRecording}
+            {recordingTime.toFixed(1)}s
+          {/if}
         </button>
         <button onclick={() => showApiModal = true} class="neural-button text-sm">
           <Key size={16} />
@@ -378,9 +530,15 @@
     </div>
   </div>
 
-  <!-- Sequencer Grid -->
-  <div class="flex-1 overflow-auto p-6 space-y-4">
-    {#each tracks as track}
+  <!-- View Mode Toggle -->
+  {#if viewMode === 'code'}
+    <div class="flex-1 overflow-hidden">
+      <StrudelEditor />
+    </div>
+  {:else}
+    <!-- Sequencer Grid -->
+    <div class="flex-1 overflow-auto p-6 space-y-4">
+      {#each tracks as track}
       <div class="neural-panel p-4">
         <!-- Track Header -->
         <div class="flex items-center gap-4 mb-3">
@@ -457,8 +615,9 @@
           {/each}
         </div>
       </div>
-    {/each}
-  </div>
+      {/each}
+    </div>
+  {/if}
 
   <!-- API Key Modal -->
   {#if showApiModal}
@@ -553,6 +712,51 @@
             {/each}
           </div>
         {/if}
+      </div>
+    </div>
+  {/if}
+
+  <!-- Presets Library Modal -->
+  {#if showPresets}
+    <div class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4" onclick={() => showPresets = false}>
+      <div class="neural-panel max-w-5xl w-full p-6 space-y-4 max-h-[90vh] overflow-auto" onclick={(e) => e.stopPropagation()}>
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-2xl font-bold text-pulse-cyan">Preset Library</h2>
+            <p class="text-sm text-gray-400 mt-1">Curated styles and techniques to jumpstart your creativity</p>
+          </div>
+          <button onclick={() => showPresets = false} class="neural-button text-sm">
+            Close
+          </button>
+        </div>
+
+        <div class="space-y-6">
+          {#each presets as category}
+            <div>
+              <h3 class="text-lg font-bold text-pulse-purple mb-3">{category.category}</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {#each category.presets as preset}
+                  <button
+                    onclick={() => loadPreset(preset.prompt)}
+                    disabled={isGenerating}
+                    class="neural-panel p-4 text-left hover:bg-neural-600 transition-all hover:scale-105 hover:shadow-lg active:scale-95 relative overflow-hidden group"
+                  >
+                    <!-- Light up effect -->
+                    <div class="absolute inset-0 bg-gradient-to-r from-pulse-cyan to-pulse-purple opacity-0 group-hover:opacity-10 transition-opacity"></div>
+
+                    <div class="flex items-start gap-3 relative z-10">
+                      <span class="text-3xl group-hover:scale-110 transition-transform">{preset.emoji}</span>
+                      <div class="flex-1">
+                        <div class="font-bold text-pulse-cyan mb-1 group-hover:text-pulse-purple transition-colors">{preset.name}</div>
+                        <div class="text-xs text-gray-400 leading-relaxed">{preset.prompt}</div>
+                      </div>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/each}
+        </div>
       </div>
     </div>
   {/if}

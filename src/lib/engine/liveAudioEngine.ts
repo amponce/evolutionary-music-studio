@@ -7,8 +7,8 @@ import * as Tone from 'tone';
 export interface Track {
   id: string;
   name: string;
-  type: 'bass' | 'melody' | 'drums' | 'pads';
-  synth: Tone.PolySynth | Tone.Synth | Tone.MembraneSynth;
+  type: 'bass' | 'melody' | 'drums' | 'pads' | 'sample';
+  synth: Tone.PolySynth | Tone.Synth | Tone.MembraneSynth | Tone.Player;
   pattern: boolean[][]; // 16 steps x N notes
   notes: string[];
   volume: Tone.Volume;
@@ -16,6 +16,7 @@ export interface Track {
   muted: boolean;
   solo: boolean;
   color: string;
+  isSample?: boolean;
 }
 
 export class LiveAudioEngine {
@@ -59,16 +60,25 @@ export class LiveAudioEngine {
       this.tracks.forEach(track => {
         if (track.muted) return;
 
-        track.pattern.forEach((notePattern, noteIndex) => {
-          if (notePattern[this.currentStep]) {
-            const note = track.notes[noteIndex];
-            if (track.synth instanceof Tone.MembraneSynth) {
-              track.synth.triggerAttackRelease(note, '16n', time);
-            } else {
-              track.synth.triggerAttackRelease(note, '16n', time);
-            }
+        if (track.isSample && track.synth instanceof Tone.Player) {
+          // Sample tracks - check if any step is active
+          const shouldPlay = track.pattern.some(notePattern => notePattern[this.currentStep]);
+          if (shouldPlay) {
+            track.synth.start(time);
           }
-        });
+        } else {
+          // Regular synth tracks
+          track.pattern.forEach((notePattern, noteIndex) => {
+            if (notePattern[this.currentStep]) {
+              const note = track.notes[noteIndex];
+              if (track.synth instanceof Tone.MembraneSynth) {
+                track.synth.triggerAttackRelease(note, '16n', time);
+              } else {
+                track.synth.triggerAttackRelease(note, '16n', time);
+              }
+            }
+          });
+        }
       });
     }, '16n');
   }
@@ -129,6 +139,43 @@ export class LiveAudioEngine {
     };
 
     this.tracks.set(id, track);
+    return track;
+  }
+
+  async addSampleTrack(name: string, audioBlob: Blob): Promise<Track> {
+    const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Convert blob to audio buffer
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioBuffer = await Tone.context.decodeAudioData(arrayBuffer);
+
+    // Create player
+    const player = new Tone.Player(audioBuffer).sync();
+
+    const volume = new Tone.Volume(-6);
+    const reverb = new Tone.Reverb({ decay: 1.5, wet: 0.2 });
+    const delay = new Tone.FeedbackDelay('8n', 0.3);
+    const distortion = new Tone.Distortion(0.4);
+
+    player.chain(distortion, delay, reverb, volume, this.mainOut);
+
+    const track: Track = {
+      id,
+      name,
+      type: 'sample',
+      synth: player,
+      pattern: [Array(this.steps).fill(false)], // Single row for samples
+      notes: ['Sample'],
+      volume,
+      effects: [reverb, delay, distortion],
+      muted: false,
+      solo: false,
+      color: '#10b981',
+      isSample: true
+    };
+
+    this.tracks.set(id, track);
+    console.log('[Engine] Added sample track:', name);
     return track;
   }
 

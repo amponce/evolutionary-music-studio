@@ -26,6 +26,8 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.66.0",
+		"@strudel/core": "^1.2.4",
+		"@strudel/webaudio": "^1.2.5",
 		"d3": "^7.9.0",
 		"lucide-svelte": "^0.545.0",
 		"tone": "^15.1.22",
