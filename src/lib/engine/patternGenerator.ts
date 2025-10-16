@@ -1,8 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Track } from './liveAudioEngine';
+import { getGenreReference } from '../knowledge/genres';
 
 /**
  * Pattern Generator - Uses Claude API to generate music patterns from prompts
+ * Now with compositional knowledge and artistic intent
  */
 
 export interface GeneratedPattern {
@@ -35,7 +37,39 @@ export class PatternGenerator {
 
     console.log(`[PatternGenerator] Generating pattern for: "${prompt}"`);
 
-    const systemPrompt = `You are an AI music composer using EUCLIDEAN RHYTHMS and music theory.
+    // Load genre knowledge if prompt matches
+    const genreMatch = prompt.toLowerCase();
+    let genreContext = '';
+
+    const genreKeys = ['techno', 'ambient', 'hip', 'drum', 'jazz', 'claude'];
+    const matchedGenre = genreKeys.find(g => genreMatch.includes(g));
+
+    if (matchedGenre) {
+      const ref = getGenreReference(matchedGenre);
+      genreContext = `
+GENRE REFERENCE FOR ${ref.name.toUpperCase()}:
+
+ESSENCE: ${ref.essence}
+
+RHYTHMIC CHARACTER:
+${ref.rhythmicCharacter.drums}
+${ref.rhythmicCharacter.bassPattern}
+
+HARMONY:
+Chords: ${ref.harmonic.chordProgressions.join(', ')}
+Scales: ${ref.harmonic.scales.join(', ')}
+
+COMPOSITION NOTES:
+${ref.compositionNotes}
+`;
+      console.log(`[PatternGenerator] Loaded ${ref.name} reference`);
+    }
+
+    const systemPrompt = `You are Claude, an AI composer with deep musical knowledge.
+
+${genreContext}
+
+EUCLIDEAN RHYTHM TOOLKIT:
 
 MUSICAL KNOWLEDGE - Use these Euclidean patterns:
 - bd(3,8) = Kick on steps 0,5,10 (sparse techno)
