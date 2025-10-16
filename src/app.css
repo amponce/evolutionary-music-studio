@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-neural-900 text-gray-100 font-sans antialiased;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #303040 #12121a;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #12121a;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #303040;
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #3a3a4a;
+  }
+}
+
+@layer components {
+  .neural-panel {
+    @apply bg-neural-800 rounded-lg border border-neural-600 shadow-xl;
+  }
+
+  .neural-button {
+    @apply px-4 py-2 rounded-lg bg-neural-700 hover:bg-neural-600
+           transition-colors border border-neural-500 font-medium;
+  }
+
+  .neural-button-primary {
+    @apply px-4 py-2 rounded-lg bg-pulse-blue hover:bg-blue-500
+           transition-colors border border-blue-400 font-medium text-white;
+  }
+
+  .neural-input {
+    @apply bg-neural-700 border border-neural-500 rounded-lg px-4 py-2
+           focus:outline-none focus:border-pulse-blue transition-colors;
+  }
+
+  .neural-slider {
+    @apply w-full h-2 bg-neural-700 rounded-lg appearance-none cursor-pointer
+           accent-pulse-blue;
+  }
+
+  .glow-text {
+    @apply text-pulse-blue;
+    text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+  }
+
+  .pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.05);
+    }
+  }
+}
