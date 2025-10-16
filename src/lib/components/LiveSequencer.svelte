@@ -239,6 +239,10 @@
     updateTracks();
   }
 
+  // Creative process log
+  let creativeLog: string[] = [];
+  let showCreativeLog = false;
+
   async function handleGenerate(iterationPrompt?: string) {
     if (!apiKey) {
       showApiModal = true;
@@ -252,6 +256,8 @@
     }
 
     isGenerating = true;
+    creativeLog = [];
+    showCreativeLog = true;
 
     // Build iteration context
     let fullPrompt = effectivePrompt;
@@ -266,40 +272,80 @@
 
     try {
       patternGenerator.initialize(apiKey);
+
+      addLog(`🎵 Generating: "${effectivePrompt}"`);
+      await sleep(300);
+
       const result = await patternGenerator.generateFromPrompt(fullPrompt);
 
       console.log('[UI] Generated result:', result);
 
       // Clear existing tracks
+      addLog('🧹 Clearing old tracks...');
+      await sleep(200);
       tracks.forEach(t => engine.removeTrack(t.id));
 
-      // Apply generated patterns
-      result.tracks.forEach(trackDef => {
-        const track = engine.addTrack(trackDef.name, trackDef.type);
+      addLog(`🎹 Creating ${result.tracks.length} tracks...`);
+      await sleep(300);
 
-        // Apply pattern
-        trackDef.pattern.forEach((notePattern, noteIndex) => {
-          notePattern.forEach((active, stepIndex) => {
-            if (active) {
+      // Apply generated patterns WITH ANIMATION
+      for (const trackDef of result.tracks) {
+        addLog(`✨ Adding ${trackDef.name} (${trackDef.type})`);
+        await sleep(400);
+
+        const track = engine.addTrack(trackDef.name, trackDef.type);
+        updateTracks();
+        await sleep(200);
+
+        // Apply pattern cell by cell
+        let cellCount = 0;
+        for (let noteIndex = 0; noteIndex < trackDef.pattern.length; noteIndex++) {
+          for (let stepIndex = 0; stepIndex < trackDef.pattern[noteIndex].length; stepIndex++) {
+            if (trackDef.pattern[noteIndex][stepIndex]) {
               engine.toggleNote(track.id, noteIndex, stepIndex);
+              cellCount++;
+
+              // Update every few cells for smooth animation
+              if (cellCount % 4 === 0) {
+                updateTracks();
+                await sleep(30);
+              }
             }
-          });
-        });
-      });
+          }
+        }
+
+        updateTracks();
+        addLog(`  → Painted ${cellCount} notes`);
+        await sleep(300);
+      }
 
       bpm = result.bpm;
       engine.setBPM(result.bpm);
       generatedCode = result.code;
       previousPrompt = effectivePrompt;
 
+      addLog(`⚡ Set tempo to ${result.bpm} BPM`);
+      await sleep(200);
+      addLog('🎉 Ready to play!');
+
       updateTracks();
       console.log('[UI] Applied patterns, total tracks:', engine.getTracks().length);
     } catch (error) {
       console.error('[UI] Generation error:', error);
+      addLog(`❌ Error: ${error}`);
       alert(`Generation failed: ${error}`);
     } finally {
       isGenerating = false;
     }
+  }
+
+  function addLog(message: string) {
+    creativeLog = [...creativeLog, message];
+    console.log('[Creative]', message);
+  }
+
+  function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // Quick iteration prompts
@@ -529,6 +575,23 @@
       {/if}
     </div>
   </div>
+
+  <!-- Creative Process Log -->
+  {#if showCreativeLog && creativeLog.length > 0}
+    <div class="bg-neural-800 border-b border-neural-600 p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-sm font-bold text-pulse-cyan">🧠 Claude's Creative Process</h3>
+        <button onclick={() => showCreativeLog = false} class="text-xs text-gray-500 hover:text-gray-300">
+          Hide
+        </button>
+      </div>
+      <div class="space-y-1 max-h-32 overflow-auto">
+        {#each creativeLog as log}
+          <div class="text-xs text-gray-300 font-mono animate-fade-in">{log}</div>
+        {/each}
+      </div>
+    </div>
+  {/if}
 
   <!-- View Mode Toggle -->
   {#if viewMode === 'code'}

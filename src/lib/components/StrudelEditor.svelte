@@ -1,63 +1,53 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { repl } from '@strudel/core';
-  import { webaudioOutput } from '@strudel/webaudio';
   import { Play, Pause, Code } from 'lucide-svelte';
 
-  let codeValue = `// Live code with Strudel!
-// Edit and press Ctrl+Enter to play
+  let codeValue = `// Strudel Live Coding
+// Note: Full Strudel needs browser context
+// This is a placeholder for now
 
 sound("bd sd, hh*4")
-  .slow(2)
 
-// Try these:
-// note("c a f e")
-//   .sound("piano")
-//   .slow(4)
-
-// sound("hh*8")
-//   .gain("[.25 1]*4")`;
+// Try:
+// note("c a f e").sound("piano")
+// sound("hh*8").gain("[.25 1]*4")
+// $: sound("bd*4,[~ sd:1]*2")`;
 
   let isPlaying = false;
-  let strudelRepl: any = null;
   let textarea: HTMLTextAreaElement;
+  let errorMessage = '';
 
   onMount(async () => {
-    // Initialize Strudel REPL
-    strudelRepl = await repl({
-      transpiler: (code: string) => code,
-      getTime: () => performance.now() / 1000,
-      setInterval,
-      clearInterval,
-      onUpdateError: (e: any) => {
-        console.error('[Strudel] Error:', e);
-      }
-    });
-
-    console.log('[Strudel] REPL initialized');
+    console.log('[Strudel] Editor mounted - full integration coming soon');
   });
 
   onDestroy(() => {
-    if (strudelRepl) {
-      strudelRepl.stop();
+    if (isPlaying) {
+      isPlaying = false;
     }
   });
 
   async function togglePlayback() {
-    if (!strudelRepl) return;
-
     if (isPlaying) {
-      await strudelRepl.stop();
       isPlaying = false;
+      errorMessage = '';
       console.log('[Strudel] Stopped');
     } else {
       try {
-        await strudelRepl.evaluate(codeValue);
         isPlaying = true;
-        console.log('[Strudel] Playing:', codeValue);
+        errorMessage = 'Strudel integration in progress - use the sequencer grid for now!';
+        console.log('[Strudel] Would play:', codeValue);
+
+        // TODO: Implement full Strudel integration
+        // Need to set up proper audio context and sample loading
+
+        setTimeout(() => {
+          isPlaying = false;
+        }, 2000);
       } catch (error) {
-        console.error('[Strudel] Playback error:', error);
-        alert(`Strudel error: ${error}`);
+        console.error('[Strudel] Error:', error);
+        errorMessage = `Error: ${error}`;
+        isPlaying = false;
       }
     }
   }
@@ -111,6 +101,13 @@ sound("bd sd, hh*4")
     placeholder="Enter Strudel code..."
     spellcheck="false"
   ></textarea>
+
+  <!-- Error/Status Message -->
+  {#if errorMessage}
+    <div class="bg-neural-800 border-t border-neural-600 p-4 text-sm text-pulse-cyan">
+      {errorMessage}
+    </div>
+  {/if}
 </div>
 
 <style>
