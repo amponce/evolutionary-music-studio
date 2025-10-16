@@ -649,6 +649,9 @@
           <div class="flex items-center gap-2 min-w-[120px]">
             <div class="w-3 h-3 rounded-full" style="background: {track.color}"></div>
             <span class="font-medium">{track.name}</span>
+            {#if track.isSample}
+              <span class="text-xs bg-green-600 px-2 py-1 rounded">SAMPLE</span>
+            {/if}
           </div>
 
           <button
@@ -677,7 +680,7 @@
         <!-- Visual Timeline Overview -->
         <div class="mb-3 pl-12 pr-1">
           <div class="flex gap-1 h-8 bg-neural-900 rounded p-1">
-            {#each Array(16) as _, stepIndex}
+            {#each Array(patternLength) as _, stepIndex}
               {@const hasNote = track.pattern.some(notePattern => notePattern[stepIndex])}
               <div
                 class="flex-1 rounded transition-all duration-75"

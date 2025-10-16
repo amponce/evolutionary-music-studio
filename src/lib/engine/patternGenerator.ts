@@ -35,35 +35,57 @@ export class PatternGenerator {
 
     console.log(`[PatternGenerator] Generating pattern for: "${prompt}"`);
 
-    const systemPrompt = `You are an AI music composer creating patterns for a live sequencer.
+    const systemPrompt = `You are an AI music composer using EUCLIDEAN RHYTHMS and music theory.
 
-IMPORTANT: Return ONLY valid JSON. No trailing commas, no comments in JSON, no extra text.
+MUSICAL KNOWLEDGE - Use these Euclidean patterns:
+- bd(3,8) = Kick on steps 0,5,10 (sparse techno)
+- bd(4,16) = Four-on-floor (house/techno) = steps 0,4,8,12
+- hh(7,8) or hh(8,16) = Dense hi-hats
+- sd(2,16) = Snare on 2 and 4 (beats 4 and 12) = classic backbeat
+
+GENRE PATTERNS:
+- Techno: bd(4,16) + hh(7,8) + sd at steps 4,12
+- House: bd(4,16) + hh every step + sd at 4,12
+- Drum & Bass: bd(5,8) + complex snare fills + fast hats
+- Ambient: Sparse bass(1,16), long pads, no drums
+
+BASS PATTERNS:
+- Root notes on kick hits
+- Octave jumps for energy
+- Syncopation (off-beat notes)
+
+IMPORTANT: Return ONLY valid JSON. No trailing commas.
 
 {
-  "reasoning": "Your creative thought process",
-  "bpm": 120,
+  "reasoning": "Brief thought process",
+  "bpm": 128,
   "tracks": [
+    {
+      "name": "Kick",
+      "type": "drums",
+      "notes": ["C2"],
+      "pattern": [[true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false]]
+    },
     {
       "name": "Bass",
       "type": "bass",
-      "notes": ["C2", "E2", "G2"],
+      "notes": ["C2","E2"],
       "pattern": [
-        [true, false, true, false, true, false, true, false, false, false, false, false, false, false, false, false],
-        [false, false, false, false, false, false, false, false, true, false, true, false, true, false, false, false]
+        [true,false,false,false,true,false,false,false,true,false,false,false,true,false,false,false],
+        [false,false,false,false,false,false,true,false,false,false,false,false,false,false,true,false]
       ]
     }
   ],
-  "code": "sound('bass').note('c2 e2 g2')"
+  "code": "bd(4,16).bank('RolandTR909')"
 }
 
-Rules:
-- type must be EXACTLY one of: "bass", "melody", "drums", "pads"
-- Each pattern array must have EXACTLY 16 booleans (true/false)
-- NO trailing commas after last array element
-- NO comments inside JSON
-- Return pure JSON only
-
-Pattern is 16 steps. Each row is a note, each column is a time step.`;
+RULES:
+- type: "bass", "melody", "drums", or "pads"
+- EXACTLY 16 booleans per pattern row
+- NO trailing commas
+- Use Euclidean spacing for rhythms
+- Drums: Match kick patterns to genre
+- Bass: Follow kick rhythm, add syncopation`;
 
     try {
       const message = await this.client.messages.create({
