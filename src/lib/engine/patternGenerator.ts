@@ -37,27 +37,33 @@ export class PatternGenerator {
 
     const systemPrompt = `You are an AI music composer creating patterns for a live sequencer.
 
-Generate a musical pattern based on the user's prompt. Return VALID JSON:
+IMPORTANT: Return ONLY valid JSON. No trailing commas, no comments in JSON, no extra text.
 
 {
-  "reasoning": "Your creative thought process...",
+  "reasoning": "Your creative thought process",
   "bpm": 120,
   "tracks": [
     {
       "name": "Bass",
-      "type": "bass" | "melody" | "drums" | "pads",
+      "type": "bass",
       "notes": ["C2", "E2", "G2"],
       "pattern": [
         [true, false, true, false, true, false, true, false, false, false, false, false, false, false, false, false],
-        [false, false, false, false, false, false, false, false, true, false, true, false, true, false, false, false],
+        [false, false, false, false, false, false, false, false, true, false, true, false, true, false, false, false]
       ]
     }
   ],
-  "code": "// Strudel-style code representation\nstack(\n  sound('bass').note('c2 e2 g2').fast(2),\n  sound('hat').euclidean(3,8)\n)"
+  "code": "sound('bass').note('c2 e2 g2')"
 }
 
-Pattern is 16 steps. Each row is a note, each column is a time step.
-Create interesting, musical patterns. Be creative.`;
+Rules:
+- type must be EXACTLY one of: "bass", "melody", "drums", "pads"
+- Each pattern array must have EXACTLY 16 booleans (true/false)
+- NO trailing commas after last array element
+- NO comments inside JSON
+- Return pure JSON only
+
+Pattern is 16 steps. Each row is a note, each column is a time step.`;
 
     try {
       const message = await this.client.messages.create({
@@ -75,11 +81,29 @@ Create interesting, musical patterns. Be creative.`;
 
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('Could not parse response as JSON');
+        console.error('[PatternGenerator] No JSON found in response');
+        throw new Error('Could not find JSON in response. Check console for details.');
       }
 
-      const result = JSON.parse(jsonMatch[0]);
+      let jsonText = jsonMatch[0];
+      console.log('[PatternGenerator] Extracted JSON:', jsonText);
+
+      // Try to parse
+      let result;
+      try {
+        result = JSON.parse(jsonText);
+      } catch (parseError: any) {
+        console.error('[PatternGenerator] JSON parse error:', parseError.message);
+        console.error('[PatternGenerator] Problematic JSON:', jsonText);
+        throw new Error(`Invalid JSON from AI: ${parseError.message}. Check browser console for details.`);
+      }
+
       console.log('[PatternGenerator] Parsed result:', result);
+
+      // Validate structure
+      if (!result.tracks || !Array.isArray(result.tracks)) {
+        throw new Error('Invalid response: missing tracks array');
+      }
 
       return result;
     } catch (error) {
